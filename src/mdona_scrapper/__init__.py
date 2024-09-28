@@ -46,9 +46,9 @@ class MercadonaInvoice:
 
 class MercadonaScrapper:
     ORDER_NUMBER_RE = re.compile(r"Pedido Nº ([0-9]+)")
-    INVOICE_NUMBER_RE = re.compile(r"Factura simplificada ([0-9\- ]+)\n")
+    INVOICE_NUMBER_RE = re.compile(r"Factura \w+ ([0-9\- ]+)\n")
     PAYMENT_DATE_RE = re.compile(
-        r"Cobrado el ([0-9]+)/([0-9]+)/([0-9]+) a las ([0-9]+):([0-9]+)"
+        r"Cobrado el ([0-9]+)/([0-9]+)/([0-9]+) a las? ([0-9]+):([0-9]+)"
     )
 
     SPECIAL_PRODUCT_RE = re.compile(
@@ -123,7 +123,7 @@ class MercadonaScrapper:
         day, month, year, hour, minute = map(
             int, cls.PAYMENT_DATE_RE.search(text).groups()
         )
-        return datetime(year, month, day, hour, minute)
+        return datetime(year + 2000, month, day, hour, minute)
 
     @classmethod
     def get_invoice(
