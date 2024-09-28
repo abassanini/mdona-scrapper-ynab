@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
-import pdfplumber
+from pypdf import PdfReader
 
 
 @dataclass
@@ -129,7 +129,7 @@ class MercadonaScrapper:
     def get_invoice(
         cls, path_or_fp: str | Path | BufferedReader | BytesIO
     ) -> MercadonaInvoice:
-        with pdfplumber.open(path_or_fp) as pdf:
+        with PdfReader(path_or_fp) as pdf:
             text = "\n".join([page.extract_text() for page in pdf.pages])
 
         return MercadonaInvoice(

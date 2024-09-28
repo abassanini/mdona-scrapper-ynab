@@ -1,10 +1,10 @@
 [project]
 name = "mdona-scrapper"
-version = "0.1.1"
+version = "0.1.2"
 description = "A simple scrapper for Mercadona's receipts"
 readme = "README.md"
 requires-python = ">=3.8,<3.12"
-dependencies = ["pandas>=2.0.3", "pdfplumber>=0.11.4"]
+dependencies = ["pandas>=2.0.3", "pypdf>=5.0.0"]
 license = "MIT"
 
 [project.urls]
@@ -12,7 +12,7 @@ homepage = "https://pypi.org/project/mdona-scrapper/"
 repository = "https://github.com/edugzlez/mdona-scrapper"
 
 [tool.uv]
-dev-dependencies = ["pytest>=8.3.3", "ruff>=0.6.8"]
+dev-dependencies = ["ipykernel>=6.29.5", "pytest>=8.3.3", "ruff>=0.6.8"]
 
 [build-system]
 requires = ["hatchling"]
