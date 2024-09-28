@@ -1,6 +1,6 @@
 [project]
 name = "mdona-scrapper"
-version = "0.1.3"
+version = "0.1.4"
 description = "A simple scrapper for Mercadona's receipts"
 readme = "README.md"
 requires-python = ">=3.8,<3.12"

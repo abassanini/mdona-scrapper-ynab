@@ -52,10 +52,10 @@ class MercadonaScrapper:
     )
 
     SPECIAL_PRODUCT_RE = re.compile(
-        r"([\w\d \-\&\+%]+)\n([0-9]+) ([0-9]+,[0-9]+) ?€\n- Peso: ([0-9]+,[0-9]+) ([a-zA-Z0-9.]+) Precio ([a-zA-Z0-9.]+): ([0-9]+,[0-9]+) €"
+        r"([\w\d \-\&\+%]+)\n- Peso: +([0-9]+,[0-9]+) +([\w]+) +Precio +([\w]+): +([0-9]+,[0-9]+) +€ + ([0-9]+) ([0-9]+,[0-9]+) €"
     )
 
-    NORMAL_PRODUCT_RE = re.compile(r"([\w\d \-\&\+%]+) ([0-9]+) ([0-9]+,[0-9]+) ?€\n")
+    NORMAL_PRODUCT_RE = re.compile(r"([\w\d \-\&\+%]+) ([0-9]+) ([0-9]+,[0-9]+) ?€\n?")
 
     NORMAL_PARTIAL_PRODUCT_RE = re.compile(r"([\w\d \-\&\+%]+) ([0-9]+) de")
 
@@ -63,7 +63,7 @@ class MercadonaScrapper:
     def _get_special_products(cls, text):
         return [
             Product(
-                name=name,
+                name=name.strip(),
                 total_price=float(total_price.replace(",", ".")),
                 unit=unit,
                 quantity=float(quantity.replace(",", ".")),
@@ -71,12 +71,12 @@ class MercadonaScrapper:
             )
             for (
                 name,
-                _,
-                total_price,
-                quantity,
+                unit_price,
                 unit,
                 _,
-                unit_price,
+                quantity,
+                _,
+                total_price,
             ) in cls.SPECIAL_PRODUCT_RE.findall(text)
         ]
 
@@ -92,7 +92,7 @@ class MercadonaScrapper:
         unit_price = total_price / quantity if quantity != 0 else 0
 
         return Product(
-            name=name,
+            name=name.strip(),
             total_price=total_price,
             unit="",
             quantity=quantity,
@@ -104,6 +104,7 @@ class MercadonaScrapper:
         return [
             cls._normal_tuple_to_product(tup)
             for tup in cls.NORMAL_PRODUCT_RE.findall(text)
+            if len(tup[0].strip()) > 0
         ]
 
     @classmethod
