@@ -1,0 +1,15 @@
+[project]
+name = "mdona-scrapper"
+version = "0.1.0"
+description = "A simple scrapper for Mercadona's receipts"
+readme = "README.md"
+requires-python = ">=3.8,<3.12"
+dependencies = ["pandas>=2.0.3", "pdfplumber>=0.11.4"]
+license = "MIT"
+
+[tool.uv]
+dev-dependencies = ["pytest>=8.3.3", "ruff>=0.6.8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
