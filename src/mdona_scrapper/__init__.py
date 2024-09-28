@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from io import BufferedReader, BytesIO
 from pathlib import Path
 from typing import List
 
@@ -125,8 +126,10 @@ class MercadonaScrapper:
         return datetime(year, month, day, hour, minute)
 
     @classmethod
-    def get_invoice(cls, path: str | Path) -> MercadonaInvoice:
-        with pdfplumber.open(Path(path)) as pdf:
+    def get_invoice(
+        cls, path_or_fp: str | Path | BufferedReader | BytesIO
+    ) -> MercadonaInvoice:
+        with pdfplumber.open(path_or_fp) as pdf:
             text = "\n".join([page.extract_text() for page in pdf.pages])
 
         return MercadonaInvoice(
