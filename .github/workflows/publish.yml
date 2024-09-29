@@ -1,0 +1,32 @@
+name: Publish Python 🐍 package 📦 to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  uv-example:
+    name: python
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.10
+        run: uv python install 3.10
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build distribution
+        run: uv build
+
+      - name: Publish distribution to PyPI
+        run: uv publish -t ${{ secrets.PYPI_TOKEN }}

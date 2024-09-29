@@ -52,10 +52,10 @@ class MercadonaScrapper:
     )
 
     SPECIAL_PRODUCT_RE = re.compile(
-        r"([\w\d \-\&\+%]+)\n- Peso: +([0-9]+,[0-9]+) +([\w]+) +Precio +([\w]+): +([0-9]+,[0-9]+) +€ + ([0-9]+) ([0-9]+,[0-9]+) €"
+        r"([\w\d \-\&\+%]+)\n-\s*Peso:\s+([0-9]+,[0-9]+)\s+([\w]+)\s+Precio\s+([\w]+):\s+([0-9]+,[0-9]+)\s*€\s*([0-9]+)\s+([0-9]+,[0-9]+)\s*€"
     )
 
-    NORMAL_PRODUCT_RE = re.compile(r"([\w\d \-\&\+%]+) ([0-9]+) ([0-9]+,[0-9]+) ?€\n?")
+    NORMAL_PRODUCT_RE = re.compile(r"([\w\d, \-\&\+%]+) ([0-9]+) ([0-9]+,[0-9]+) ?€\n?")
 
     NORMAL_PARTIAL_PRODUCT_RE = re.compile(r"([\w\d \-\&\+%]+) ([0-9]+) de")
 
