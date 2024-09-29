@@ -30,3 +30,11 @@ jobs:
 
       - name: Publish distribution to PyPI
         run: uv publish -t ${{ secrets.PYPI_TOKEN }}
+
+      - name: Upload files to release
+        run: |
+          for file in dist/*; do
+            gh release upload ${{ github.event.release.tag_name }} "$file"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
