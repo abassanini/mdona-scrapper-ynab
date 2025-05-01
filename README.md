@@ -13,7 +13,7 @@ pip install mdona-scrapper
 ```python
 from mdona_scrapper import MercadonaScrapper
 
-invoice = MercadonaScrapper.get_invoce('path/to/invoice.pdf')
+invoice = MercadonaScrapper.get_invoice('path/to/invoice.pdf')
 
 producs = invoice.products
 order_number = invoice.order_number
