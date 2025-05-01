@@ -1,6 +1,8 @@
 **/__pycache__
 /dist
 .venv
+venv
 **.egg-info/
 .python-version
 .pypirc
+*pdf
