@@ -24,6 +24,7 @@ class MercadonaInvoice:
     order_number: int
     invoice_number: str
     payment_date: datetime
+    total: float = 0.0
 
     @property
     def dataframe(self):
@@ -38,6 +39,7 @@ class MercadonaInvoice:
                     "order_number": self.order_number,
                     "invoice_number": self.invoice_number,
                     "payment_date": self.payment_date,
+                    "invoice_total": self.total,
                 }
                 for product in self.products
             )
@@ -45,17 +47,18 @@ class MercadonaInvoice:
 
 
 class MercadonaScrapper:
-    ORDER_NUMBER_RE = re.compile(r"Pedido Nº ([0-9]+)")
-    INVOICE_NUMBER_RE = re.compile(r"Factura \w+ ([0-9\- ]+)\n")
+    ORDER_NUMBER_RE = re.compile(r"(?:Pedido Nº|OP):\s+([0-9]+)")
+    INVOICE_NUMBER_RE = re.compile(r"Factura \w+:\s+([0-9\- ]+)\n", re.IGNORECASE)
+    TOTAL_INVOICE_RE = re.compile(r"TOTAL.*€.*?(\d+[.,]\d+)", re.IGNORECASE)
     PAYMENT_DATE_RE = re.compile(
-        r"Cobrado el ([0-9]+)/([0-9]+)/([0-9]+) a las? ([0-9]+):([0-9]+)"
+        r"(?:Cobrado el )?([0-9]+)/([0-9]+)/([0-9]+)(?: a las)?\s+([0-9]+):([0-9]+)"
     )
 
     SPECIAL_PRODUCT_RE = re.compile(
-        r"([\w\d \-\&\+%]+)\n-\s*Peso:\s+([0-9]+,[0-9]+)\s+([\w]+)\s+Precio\s+([\w]+):\s+([0-9]+,[0-9]+)\s*€\s*([0-9]+)\s+([0-9]+,[0-9]+)\s*€"
+        r"^[1-9]\d*\s+(.+)\n(\d+[.,]\d+)\s+(.+)(\d+[.,]\d+)$", re.MULTILINE
     )
 
-    NORMAL_PRODUCT_RE = re.compile(r"([\w\d, \-\&\+%]+) ([0-9]+) ([0-9]+,[0-9]+) ?€\n?")
+    NORMAL_PRODUCT_RE = re.compile(r"^([1-9]\d*)\s+(.+)\s(\d+[.,]\d+)$", re.MULTILINE)
 
     NORMAL_PARTIAL_PRODUCT_RE = re.compile(r"([\w\d \-\&\+%]+) ([0-9]+) de")
 
@@ -64,29 +67,28 @@ class MercadonaScrapper:
         return [
             Product(
                 name=name.strip(),
-                total_price=float(total_price.replace(",", ".")),
-                unit=unit,
+                unit=f"{quantity} {unit}".strip(),
                 quantity=float(quantity.replace(",", ".")),
-                unit_price=float(unit_price.replace(",", ".")),
+                total_price=float(total_price.replace(",", ".")),
+                unit_price=round(
+                    float(total_price.replace(",", "."))
+                    / float(quantity.replace(",", ".")),
+                    2,
+                ),
             )
             for (
                 name,
-                unit_price,
-                unit,
-                _,
                 quantity,
-                _,
+                unit,
                 total_price,
             ) in cls.SPECIAL_PRODUCT_RE.findall(text)
         ]
 
     @classmethod
     def _normal_tuple_to_product(cls, tup) -> Product:
-        (name, quantity, total_price) = tup
-        if name.endswith(" de"):
-            (name, quantity) = cls.NORMAL_PARTIAL_PRODUCT_RE.search(name).groups()
+        (quantity, name, total_price) = tup
 
-        quantity = float(quantity.replace(",", "."))
+        quantity = int(quantity)
         total_price = float(total_price.replace(",", "."))
 
         unit_price = total_price / quantity if quantity != 0 else 0
@@ -124,7 +126,11 @@ class MercadonaScrapper:
         day, month, year, hour, minute = map(
             int, cls.PAYMENT_DATE_RE.search(text).groups()
         )
-        return datetime(year + 2000, month, day, hour, minute)
+        return datetime(year, month, day, hour, minute)
+
+    @classmethod
+    def _get_invoice_total(cls, text) -> float:
+        return float(cls.TOTAL_INVOICE_RE.search(text).group(1).replace(",", "."))
 
     @classmethod
     def get_invoice(
@@ -138,4 +144,5 @@ class MercadonaScrapper:
             order_number=cls._get_order_number(text),
             invoice_number=cls._get_invoice_number(text),
             payment_date=cls._get_payment_date(text),
+            total=cls._get_invoice_total(text),
         )
