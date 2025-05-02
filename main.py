@@ -1,6 +1,15 @@
+import argparse
+
 from mdona_scrapper import MercadonaScrapper
 
-invoice = MercadonaScrapper.get_invoice("mercadona_04.pdf")
+parser = argparse.ArgumentParser(
+    description="Extract text from PDF and send it to YNAB."
+)
+parser.add_argument("pdf_file", type=str, help="Path to the PDF file to use")
+args = parser.parse_args()
+pdf_file = args.pdf_file
+
+invoice = MercadonaScrapper.get_invoice(pdf_file)
 
 producs = invoice.products
 order_number = invoice.order_number
