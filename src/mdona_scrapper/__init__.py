@@ -7,6 +7,7 @@ from typing import List
 
 import pandas as pd
 from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
 
 @dataclass
@@ -136,8 +137,13 @@ class MercadonaScrapper:
     def get_invoice(
         cls, path_or_fp: str | Path | BufferedReader | BytesIO
     ) -> MercadonaInvoice:
-        with PdfReader(path_or_fp) as pdf:
-            text = "\n".join([page.extract_text() for page in pdf.pages])
+        try:
+            with PdfReader(path_or_fp) as pdf:
+                text = "\n".join([page.extract_text() for page in pdf.pages])
+        except PyPdfError:
+            raise SystemExit(f"Error reading PDF file: {path_or_fp}")
+        except FileNotFoundError:
+            raise SystemExit(f"File not found: {path_or_fp}")
 
         return MercadonaInvoice(
             products=cls._get_products(text),
