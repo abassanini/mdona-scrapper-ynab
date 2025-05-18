@@ -6,3 +6,8 @@ venv
 .python-version
 .pypirc
 *pdf
+*png
+.DS_Store
+.zed
+*out
+.envrc
