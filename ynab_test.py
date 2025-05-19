@@ -55,7 +55,6 @@ data = PostTransactionsWrapper(
     ),
 )
 
-
 with ApiClient(configuration) as api_client:
     # budgets_api = BudgetsApi(api_client)
     # budgets_response = budgets_api.get_budgets()
@@ -65,14 +64,15 @@ with ApiClient(configuration) as api_client:
     #     print(f"{budget.id}: {budget.name}")
 
     trx_api = TransactionsApi(api_client)
-    # trx_response = trx_api.get_transactions(
-    #     budget_id=budget_id,
-    #     # since_date=datetime.date(2025, 5, 5)
-    #     since_date=datetime.date.today() - datetime.timedelta(days=1),
-    # )
-    # for trx in trx_response.data.transactions:
-    #     print(trx)
+    trx_response = trx_api.get_transactions(
+        budget_id=budget_id,
+        # since_date=datetime.date(2025, 5, 5)
+        since_date=datetime.date.today() - datetime.timedelta(days=3),
+    )
+    for trx in trx_response.data.transactions:
+        print(trx)
 
+    exit(1)
     try:
         # Create a single transaction
         api_response = trx_api.create_transaction(budget_id, data)
