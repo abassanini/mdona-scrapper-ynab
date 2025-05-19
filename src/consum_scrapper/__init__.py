@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from io import BufferedReader, BytesIO
 from pathlib import Path
-from pprint import pprint
 from typing import List
 
 import pandas as pd
@@ -56,34 +55,31 @@ class ConsumScrapper:
         r"(C:\d+\s\d+\/\d+)\s\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\s(\d+)", re.IGNORECASE
     )
     TOTAL_INVOICE_RE = re.compile(r"Total factura:\s(\d+[.,]\d+)", re.IGNORECASE)
-    PAYMENT_DATE_RE = re.compile(r"(\d{2}\.\d{2}\.\d{4})")
+    PAYMENT_DATE_RE = re.compile(r"(\d{2})\.(\d{2})\.(\d{4})\s(\d{2}):(\d{2})")
 
-    UNITARY_PRODUCT_RE = re.compile(r"1\s[a-zA-Z0-9ñÑ\-.\/\s]+\s(\d+[.,]\d+)")
+    UNITARY_PRODUCT_RE = re.compile(r"'1\s([a-zA-Z0-9ñÑ\-%.\/\s]+)\s(\d+[.,]\d+)")
     MULTIPLE_PRODUCT_RE = re.compile(
         r"\d+\s[a-zA-Z0-9ñÑ\-.\/\s]+\s(\d*[.,]\d+)\s(\d+[.,]\d+)"
     )
-    FRACTIONAL_PRODUCT_RE = re.compile(r"0[.,]\d+\s[a-zA-Z0-9ñÑ\-.\/\s]+\s(\d+[.,]\d+)")
-    NEGATIVE_PRODUCT_RE = re.compile(r"-\d+\s[a-zA-Z0-9ñÑ\-.\/\s]+\s(-\d*[.,]\d*)")
+    FRACTIONAL_PRODUCT_RE = re.compile(
+        r"0[.,]\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(\d+[.,]\d+)"
+    )
+    NEGATIVE_PRODUCT_RE = re.compile(r"-\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(-\d*[.,]\d*)")
 
     @classmethod
-    def _get_special_products(cls, text):
+    def _get_unitary_products(cls, text):
         return [
             Product(
                 name=name.strip(),
-                unit=f"{quantity} {unit}".strip(),
-                quantity=(q := float(quantity.replace(",", "."))),
+                unit="",
+                quantity=1,
                 total_price=(t := round(float(total_price.replace(",", ".")), 2)),
-                unit_price=round(
-                    t / q if q != 0 else 0,
-                    2,
-                ),
+                unit_price=t,
             )
             for (
                 name,
-                quantity,
-                unit,
                 total_price,
-            ) in cls.SPECIAL_PRODUCT_RE.findall(text)
+            ) in cls.UNITARY_PRODUCT_RE.findall(text)
         ]
 
     @classmethod
@@ -134,15 +130,20 @@ class ConsumScrapper:
 
     @classmethod
     def _get_products(cls, text) -> List[Product]:
-        return cls._get_special_products(text) + cls._get_normal_products(text)
+        return (
+            cls._get_unitary_products(text)
+            # + cls._get_normal_products(text)
+            # + cls._get_negative_products(text)
+            # + cls._get_fractional_products(text)
+        )
 
     @classmethod
     def _get_order_number(cls, text) -> int:
-        return int(cls.ORDER_NUMBER_RE.search(text).group(1))
+        return cls.INVOICE_NUMBER_RE.search(text).group(1)
 
     @classmethod
     def _get_invoice_number(cls, text) -> str:
-        return cls.INVOICE_NUMBER_RE.search(text).group(1)
+        return cls.INVOICE_NUMBER_RE.search(text).group(2)
 
     @classmethod
     def _get_payment_date(cls, text) -> datetime:
@@ -174,10 +175,6 @@ class ConsumScrapper:
         except FileNotFoundError:
             raise SystemExit(f"File not found: {path_or_fp}")
 
-        print("Consum invoice text:")
-        print("=========================================")
-        pprint(text)
-        exit(1)
         return ConsumInvoice(
             products=cls._get_products(text),
             order_number=cls._get_order_number(text),
