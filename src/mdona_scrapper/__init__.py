@@ -60,8 +60,7 @@ class MercadonaScrapper:
     )
 
     NORMAL_PRODUCT_RE = re.compile(r"^([1-9]\d*)\s+(.+)\s(\d+[.,]\d+)$", re.MULTILINE)
-
-    NORMAL_PARTIAL_PRODUCT_RE = re.compile(r"([\w\d \-\&\+%]+) ([0-9]+) de")
+    UNIT_PRODUCT_PRICE_RE = re.compile(r"(.*)\s(\d+[,.]\d{2})$")
 
     @classmethod
     def _get_special_products(cls, text):
@@ -69,11 +68,10 @@ class MercadonaScrapper:
             Product(
                 name=name.strip(),
                 unit=f"{quantity} {unit}".strip(),
-                quantity=float(quantity.replace(",", ".")),
-                total_price=float(total_price.replace(",", ".")),
+                quantity=(q := float(quantity.replace(",", "."))),
+                total_price=(t := round(float(total_price.replace(",", ".")), 2)),
                 unit_price=round(
-                    float(total_price.replace(",", "."))
-                    / float(quantity.replace(",", ".")),
+                    t / q if q != 0 else 0,
                     2,
                 ),
             )
@@ -86,18 +84,39 @@ class MercadonaScrapper:
         ]
 
     @classmethod
+    def _get_unit_price(cls, text) -> str:
+        unit: str = (
+            match.group(1) if (match := cls.UNIT_PRODUCT_PRICE_RE.search(text)) else ""
+        )
+
+        return unit.replace(",", ".")
+
+    @classmethod
     def _normal_tuple_to_product(cls, tup) -> Product:
         (quantity, name, total_price) = tup
 
+        unit: str = ""
         quantity = int(quantity)
         total_price = float(total_price.replace(",", "."))
 
+        if quantity > 1:
+            try:
+                (name, unit) = (
+                    match.groups()
+                    if (match := cls.UNIT_PRODUCT_PRICE_RE.search(name))
+                    else None
+                )
+            except ValueError as e:
+                print(f"Probably regex missmatch in {name=}.  Error: {e}")
+                exit(1)
+
         unit_price = total_price / quantity if quantity != 0 else 0
+        unit = f"({quantity} x {unit.replace(',', '.').strip()}€)" if unit else unit
 
         return Product(
             name=name.strip(),
             total_price=total_price,
-            unit="",
+            unit=unit,
             quantity=quantity,
             unit_price=unit_price,
         )
