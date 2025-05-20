@@ -186,14 +186,22 @@ class ConsumScrapper:
             image = Image.open(path_or_fp)
             image = image.convert("L")
             image = image.filter(ImageFilter.MedianFilter())
-            enhancer = ImageEnhance.Contrast(image)
-            image = enhancer.enhance(2)
-            image = image.convert("1")
+
+            # enhancer = ImageEnhance.Contrast(image)
+            # image = enhancer.enhance(2)
+            # image = image.convert("1")
+
+            enhancer = ImageEnhance.Sharpness(image)
+            image = enhancer.enhance(8.0)
+            image = image.convert("L").point(lambda x: 255 if x > 150 else 0, mode="1")
+
             text = pytesseract.image_to_string(image, lang="spa")
         except UnidentifiedImageError:
             raise SystemExit(f"Error reading invoice file: {path_or_fp}")
         except FileNotFoundError:
             raise SystemExit(f"File not found: {path_or_fp}")
+
+        print(text)
 
         return ConsumInvoice(
             products=cls._get_products(text),

@@ -88,7 +88,7 @@ data = PostTransactionsWrapper(
     ),
 )
 
-pprint(invoice.products)
+# pprint(invoice.products)
 # pprint(data)
 exit(1)
 
