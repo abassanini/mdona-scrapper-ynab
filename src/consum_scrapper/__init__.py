@@ -57,14 +57,18 @@ class ConsumScrapper:
     TOTAL_INVOICE_RE = re.compile(r"Total factura:\s(\d+[.,]\d+)", re.IGNORECASE)
     PAYMENT_DATE_RE = re.compile(r"(\d{2})\.(\d{2})\.(\d{4})\s(\d{2}):(\d{2})")
 
-    UNITARY_PRODUCT_RE = re.compile(r"'1\s([a-zA-Z0-9ñÑ\-%.\/\s]+)\s(\d+[.,]\d+)")
+    UNITARY_PRODUCT_RE = re.compile(
+        r"^1\s([a-zA-Z0-9ñÑ\-%.\/\s]+)\s(\d+[.,]\d+)", re.MULTILINE
+    )
     MULTIPLE_PRODUCT_RE = re.compile(
-        r"\d+\s[a-zA-Z0-9ñÑ\-.\/\s]+\s(\d*[.,]\d+)\s(\d+[.,]\d+)"
+        r"^(\d+)\s([a-zA-Z0-9ñÑ\-.\/\s]+)\s(\d*[.,]\d+)\s(\d+[.,]\d+)", re.MULTILINE
     )
     FRACTIONAL_PRODUCT_RE = re.compile(
-        r"0[.,]\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(\d+[.,]\d+)"
+        r"^0[.,]\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(\d+[.,]\d+)", re.MULTILINE
     )
-    NEGATIVE_PRODUCT_RE = re.compile(r"-\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(-\d*[.,]\d*)")
+    NEGATIVE_PRODUCT_RE = re.compile(
+        r"^-\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(-\d*[.,]\d*)", re.MULTILINE
+    )
 
     @classmethod
     def _get_unitary_products(cls, text):
@@ -80,6 +84,22 @@ class ConsumScrapper:
                 name,
                 total_price,
             ) in cls.UNITARY_PRODUCT_RE.findall(text)
+        ]
+
+    @classmethod
+    def _get_multiple_products(cls, text):
+        return [
+            Product(
+                name=name.strip(),
+                unit="",
+                quantity=1,
+                total_price=(t := round(float(total_price.replace(",", ".")), 2)),
+                unit_price=t,
+            )
+            for (
+                name,
+                total_price,
+            ) in cls.MULTIPLE_PRODUCT_RE.findall(text)
         ]
 
     @classmethod
