@@ -88,7 +88,8 @@ data = PostTransactionsWrapper(
     ),
 )
 
-pprint(data)
+pprint(invoice.products)
+# pprint(data)
 exit(1)
 
 with ApiClient(configuration) as api_client:
