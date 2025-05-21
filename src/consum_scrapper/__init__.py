@@ -90,14 +90,16 @@ class ConsumScrapper:
     def _get_multiple_products(cls, text):
         return [
             Product(
+                quantity=int(quantity),
                 name=name.strip(),
                 unit="",
-                quantity=1,
-                total_price=(t := round(float(total_price.replace(",", ".")), 2)),
-                unit_price=t,
+                unit_price=round(unit_price.replace(",", ".").strip(), 2),
+                total_price=round(float(total_price.replace(",", ".")), 2),
             )
             for (
+                quantity,
                 name,
+                unit_price,
                 total_price,
             ) in cls.MULTIPLE_PRODUCT_RE.findall(text)
         ]
