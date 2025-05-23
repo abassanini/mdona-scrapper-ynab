@@ -1,3 +1,4 @@
+import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,9 +9,6 @@ from typing import List
 import pandas as pd
 import pytesseract
 from PIL import Image, ImageEnhance, ImageFilter, UnidentifiedImageError
-
-# from pypdf import PdfReader
-# from pypdf.errors import PyPdfError
 
 
 @dataclass
@@ -54,33 +52,38 @@ class ConsumScrapper:
     INVOICE_NUMBER_RE = re.compile(
         r"(C:\d+\s\d+\/\d+)\s\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\s(\d+)", re.IGNORECASE
     )
-    TOTAL_INVOICE_RE = re.compile(r"Total factura:\s(\d+[.,]\d+)", re.IGNORECASE)
+    TOTAL_INVOICE_RE = re.compile(r"importe a abonar\s+(\d+[.,]\d+)", re.IGNORECASE)
     PAYMENT_DATE_RE = re.compile(r"(\d{2})\.(\d{2})\.(\d{4})\s(\d{2}):(\d{2})")
 
     UNITARY_PRODUCT_RE = re.compile(
-        r"^1\s([a-zA-Z0-9ñÑ\-%.\/\s]+)\s(\d+[.,]\d+)", re.MULTILINE
+        r"^(-?1)\s+(.+?)\s+(-?\d+[.,]\d+)$",
+        re.MULTILINE,
     )
     MULTIPLE_PRODUCT_RE = re.compile(
-        r"^(\d+)\s([a-zA-Z0-9ñÑ\-.\/\s]+)\s(\d*[.,]\d+)\s(\d+[.,]\d+)", re.MULTILINE
+        r"^(-?\d+)\s+(.+)\s+(-?\d*[.,]\d*)\s+(-?\d+[.,]\d+)$",
+        re.MULTILINE,
     )
     FRACTIONAL_PRODUCT_RE = re.compile(
-        r"^0[.,]\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(\d+[.,]\d+)", re.MULTILINE
+        r"^(-?\d+[.,]\d+)\s+(.+)\s+(-?\d+[.,]\d+)$", re.MULTILINE
     )
-    NEGATIVE_PRODUCT_RE = re.compile(
-        r"^-\d+\s[a-zA-Z0-9ñÑ\-%.\/\s]+\s(-\d*[.,]\d*)", re.MULTILINE
+
+    DISCOUNT_RE = re.compile(
+        r"^(Descuento.+|Dto Mis Fav.+)\s+(-?\d+[.,]\d+)$",
+        re.MULTILINE,
     )
 
     @classmethod
     def _get_unitary_products(cls, text):
         return [
             Product(
+                quantity=int(quantity),
                 name=name.strip(),
                 unit="",
-                quantity=1,
                 total_price=(t := round(float(total_price.replace(",", ".")), 2)),
                 unit_price=t,
             )
             for (
+                quantity,
                 name,
                 total_price,
             ) in cls.UNITARY_PRODUCT_RE.findall(text)
@@ -93,7 +96,7 @@ class ConsumScrapper:
                 quantity=int(quantity),
                 name=name.strip(),
                 unit="",
-                unit_price=round(unit_price.replace(",", ".").strip(), 2),
+                unit_price=round(float(unit_price.replace(",", ".")), 2),
                 total_price=round(float(total_price.replace(",", ".")), 2),
             )
             for (
@@ -105,58 +108,45 @@ class ConsumScrapper:
         ]
 
     @classmethod
-    def _get_unit_price(cls, text) -> str:
-        unit: str = (
-            match.group(1) if (match := cls.UNIT_PRODUCT_PRICE_RE.search(text)) else ""
-        )
-
-        return unit.replace(",", ".")
-
-    @classmethod
-    def _normal_tuple_to_product(cls, tup) -> Product:
-        (quantity, name, total_price) = tup
-
-        unit: str = ""
-        quantity = int(quantity)
-        total_price = float(total_price.replace(",", "."))
-
-        if quantity > 1:
-            try:
-                (name, unit) = (
-                    match.groups()
-                    if (match := cls.UNIT_PRODUCT_PRICE_RE.search(name))
-                    else None
-                )
-            except ValueError as e:
-                print(f"Probably regex missmatch in {name=}.  Error: {e}")
-                exit(1)
-
-        unit_price = total_price / quantity if quantity != 0 else 0
-        unit = f"({quantity} x {unit.replace(',', '.').strip()}€)" if unit else unit
-
-        return Product(
-            name=name.strip(),
-            total_price=total_price,
-            unit=unit,
-            quantity=quantity,
-            unit_price=unit_price,
-        )
-
-    @classmethod
-    def _get_normal_products(cls, text) -> List[Product]:
+    def _get_fractional_products(cls, text):
         return [
-            cls._normal_tuple_to_product(tup)
-            for tup in cls.NORMAL_PRODUCT_RE.findall(text)
-            if len(tup[0].strip()) > 0
+            Product(
+                quantity=(q := round(float(quantity.replace(",", ".")), 3)),
+                name=name.strip(),
+                unit="",
+                total_price=(t := round(float(total_price.replace(",", ".")), 2)),
+                unit_price=round((t / q if q != 0 else 0), 2),
+            )
+            for (
+                quantity,
+                name,
+                total_price,
+            ) in cls.FRACTIONAL_PRODUCT_RE.findall(text)
+        ]
+
+    @classmethod
+    def _get_discount(cls, text):
+        return [
+            Product(
+                quantity=0,
+                name=name.strip(),
+                unit="",
+                total_price=round(float(total_price.replace(",", ".")), 2),
+                unit_price=0,
+            )
+            for (
+                name,
+                total_price,
+            ) in cls.DISCOUNT_RE.findall(text)
         ]
 
     @classmethod
     def _get_products(cls, text) -> List[Product]:
         return (
             cls._get_unitary_products(text)
-            # + cls._get_normal_products(text)
-            # + cls._get_negative_products(text)
-            # + cls._get_fractional_products(text)
+            + cls._get_multiple_products(text)
+            + cls._get_fractional_products(text)
+            + cls._get_discount(text)
         )
 
     @classmethod
@@ -183,8 +173,6 @@ class ConsumScrapper:
         cls, path_or_fp: str | Path | BufferedReader | BytesIO
     ) -> ConsumInvoice:
         try:
-            # with PdfReader(path_or_fp) as pdf:
-            #     text = "\n".join([page.extract_text() for page in pdf.pages])
             image = Image.open(path_or_fp)
             image = image.convert("L")
             image = image.filter(ImageFilter.MedianFilter())
@@ -203,7 +191,7 @@ class ConsumScrapper:
         except FileNotFoundError:
             raise SystemExit(f"File not found: {path_or_fp}")
 
-        print(text)
+        logging.debug(text)
 
         return ConsumInvoice(
             products=cls._get_products(text),
