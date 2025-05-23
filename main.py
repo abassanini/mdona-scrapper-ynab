@@ -1,6 +1,6 @@
 import argparse
+import logging
 import os
-from pprint import pprint
 
 from ynab.api.transactions_api import TransactionsApi
 from ynab.api_client import ApiClient
@@ -16,6 +16,7 @@ from mdona_scrapper import MercadonaScrapper
 parser = argparse.ArgumentParser(
     description="Extract text from PDF or image bills and send it to YNAB."
 )
+
 parser.add_argument(
     "-f",
     "--invoice_file",
@@ -37,10 +38,37 @@ parser.add_argument(
     help="Mercadona (m), Consum (c)",
     required=True,
 )
+
+parser.add_argument(
+    "-d",
+    "--debug",
+    help="Debug mode: INFO, DEBUG",
+    choices=["INFO", "DEBUG"],
+)
+
+parser.add_argument(
+    "-r",
+    "--dry-run",
+    action="store_true",
+    help="Dry run: do not send data to YNAB",
+)
+
 args = parser.parse_args()
 invoice_file: str = args.invoice_file
 ynab_access_token: str = args.token
 supermarket: str = args.supermarket
+
+if args.debug == "DEBUG":
+    logging.basicConfig(
+        format="%(asctime)s;%(levelname)s: %(message)s", level=logging.DEBUG
+    )
+    logging.debug("Verbose output.")
+elif args.debug == "INFO":
+    logging.basicConfig(
+        format="%(asctime)s;%(levelname)s: %(message)s", level=logging.INFO
+    )
+else:
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.WARNING)
 
 try:
     budget_id = os.environ["BUDGET_ID"]  # Spain
@@ -52,7 +80,7 @@ try:
     elif supermarket == "consum" or supermarket == "c":
         payee_id = os.environ["PAYEE_ID_CONSUM"]  # Consum
 except KeyError as e:
-    print(f"Please set environment variables: {e}")
+    logging.error(f"Please set environment variables: {e}")
     exit(1)
 
 configuration = Configuration(access_token=ynab_access_token)
@@ -88,13 +116,37 @@ data = PostTransactionsWrapper(
     ),
 )
 
-pprint(data)
-exit(1)
 
+[logging.info(i) for i in invoice.products]
+logging.info(
+    (
+        f"{total=}, sum_total=",
+        round(sum([i.total_price for i in invoice.products]), 2),
+    )
+)
+
+logging.debug(
+    (
+        "YNAB transation data:",
+        f"{data.transaction.var_date=}, {data.transaction.amount=}, {data.transaction.payee_id=}",
+        f"{data.transaction.category_id=}, {data.transaction.memo=}",
+    )
+)
+[logging.debug(i) for i in data.transaction.subtransactions]
+
+if args.dry_run:
+    logging.warning(
+        f"Dry run: not sending data to YNAB - Subtransaction items: {len(data.transaction.subtransactions)}"
+    )
+    exit(0)
+
+# Create a YNAB new transaction
 with ApiClient(configuration) as api_client:
     trx_api = TransactionsApi(api_client)
     try:
         api_response = trx_api.create_transaction(budget_id, data)
-        pprint(api_response.data.transaction_ids)
+        print(f"YNAB API Response: {api_response.data.transaction_ids}")
     except ApiException as e:
-        print("Exception when calling TransactionsApi->create_transaction: %s\n" % e)
+        logging.error(
+            "Exception when calling TransactionsApi->create_transaction: %s\n" % e
+        )
