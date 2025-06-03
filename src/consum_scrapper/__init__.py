@@ -1,54 +1,14 @@
-import logging
 import re
-from dataclasses import dataclass
 from datetime import datetime
-from io import BufferedReader, BytesIO
-from pathlib import Path
 from typing import List
 
-import pandas as pd
-import pytesseract
-from PIL import Image, ImageEnhance, ImageFilter, UnidentifiedImageError
+from invoice_scrapper import InvoiceScrapper
+from models import Invoice, Product
 
 
-@dataclass
-class Product:
-    name: str
-    total_price: float
-    unit: str
-    quantity: float
-    unit_price: float
+class ConsumScrapper(InvoiceScrapper):
+    """Consum invoice scrapper."""
 
-
-@dataclass
-class ConsumInvoice:
-    products: List[Product]
-    order_number: int
-    invoice_number: str
-    payment_date: datetime
-    total: float = 0.0
-
-    @property
-    def dataframe(self):
-        return pd.DataFrame(
-            (
-                {
-                    "name": product.name,
-                    "total_price": product.total_price,
-                    "unit": product.unit,
-                    "quantity": product.quantity,
-                    "unit_price": product.unit_price,
-                    "order_number": self.order_number,
-                    "invoice_number": self.invoice_number,
-                    "payment_date": self.payment_date,
-                    "invoice_total": self.total,
-                }
-                for product in self.products
-            )
-        )
-
-
-class ConsumScrapper:
     INVOICE_NUMBER_RE = re.compile(
         r"(C:\d+\s\d+\/\d+)\s\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\s(\d+)", re.IGNORECASE
     )
@@ -60,7 +20,7 @@ class ConsumScrapper:
         re.MULTILINE,
     )
     MULTIPLE_PRODUCT_RE = re.compile(
-        r"^(-?\d+)\s+(.+)\s+(-?\d*[.,]\d*)\s+(-?\d+[.,]\d+)$",
+        r"^([2-9]|\d{2,})\s+(.+)\s+(-?\d*[.,]\d*)\s+(-?\d+[.,]\d+)$",
         re.MULTILINE,
     )
     FRACTIONAL_PRODUCT_RE = re.compile(
@@ -93,11 +53,11 @@ class ConsumScrapper:
     def _get_multiple_products(cls, text):
         return [
             Product(
-                quantity=int(quantity),
                 name=name.strip(),
-                unit="",
-                unit_price=round(float(unit_price.replace(",", ".")), 2),
+                quantity=(q := int(quantity)),
                 total_price=round(float(total_price.replace(",", ".")), 2),
+                unit_price=(u := round(float(unit_price.replace(",", ".")), 2)),
+                unit=f"({q} x {u}€)",
             )
             for (
                 quantity,
@@ -111,11 +71,11 @@ class ConsumScrapper:
     def _get_fractional_products(cls, text):
         return [
             Product(
-                quantity=(q := round(float(quantity.replace(",", ".")), 3)),
                 name=name.strip(),
-                unit="",
+                quantity=(q := round(float(quantity.replace(",", ".")), 3)),
                 total_price=(t := round(float(total_price.replace(",", ".")), 2)),
-                unit_price=round((t / q if q != 0 else 0), 2),
+                unit_price=(u := round((t / q if q != 0 else 0), 2)),
+                unit=f"({q} x {u}€)",
             )
             for (
                 quantity,
@@ -150,12 +110,8 @@ class ConsumScrapper:
         )
 
     @classmethod
-    def _get_order_number(cls, text) -> int:
-        return cls.INVOICE_NUMBER_RE.search(text).group(1)
-
-    @classmethod
     def _get_invoice_number(cls, text) -> str:
-        return cls.INVOICE_NUMBER_RE.search(text).group(2)
+        return " - ".join(cls.INVOICE_NUMBER_RE.search(text).groups())
 
     @classmethod
     def _get_payment_date(cls, text) -> datetime:
@@ -169,33 +125,11 @@ class ConsumScrapper:
         return float(cls.TOTAL_INVOICE_RE.search(text).group(1).replace(",", "."))
 
     @classmethod
-    def get_invoice(
-        cls, path_or_fp: str | Path | BufferedReader | BytesIO
-    ) -> ConsumInvoice:
-        try:
-            image = Image.open(path_or_fp)
-            image = image.convert("L")
-            image = image.filter(ImageFilter.MedianFilter())
+    def get_invoice(cls, text: str) -> Invoice:
 
-            # enhancer = ImageEnhance.Contrast(image)
-            # image = enhancer.enhance(2)
-            # image = image.convert("1")
-
-            enhancer = ImageEnhance.Sharpness(image)
-            image = enhancer.enhance(8.0)
-            image = image.convert("L").point(lambda x: 255 if x > 150 else 0, mode="1")
-
-            text = pytesseract.image_to_string(image, lang="spa")
-        except UnidentifiedImageError:
-            raise SystemExit(f"Error reading invoice file: {path_or_fp}")
-        except FileNotFoundError:
-            raise SystemExit(f"File not found: {path_or_fp}")
-
-        logging.debug(text)
-
-        return ConsumInvoice(
+        return Invoice(
+            supermarket=cls.supermarket,
             products=cls._get_products(text),
-            order_number=cls._get_order_number(text),
             invoice_number=cls._get_invoice_number(text),
             payment_date=cls._get_payment_date(text),
             total=cls._get_invoice_total(text),
