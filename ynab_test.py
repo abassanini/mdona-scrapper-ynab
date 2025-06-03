@@ -3,6 +3,8 @@ import datetime
 import os
 from pprint import pprint
 
+from loguru import logger
+
 # from ynab.api.budgets_api import BudgetsApi
 from ynab.api.transactions_api import TransactionsApi
 from ynab.api_client import ApiClient
@@ -24,8 +26,7 @@ try:
     sub_category_id = os.environ["SUB_CATEGORY_ID"]  # Groceries
     payee_id = os.environ["PAYEE_ID_MERCADONA"]  # Mercadona
 except KeyError as e:
-    print(f"Please set environment variables: {e}")
-    exit(1)
+    raise SystemExit(logger.error(f"Please set environment variables: {e}"))
 
 configuration = Configuration(access_token=ynab_access_token)
 
@@ -70,7 +71,7 @@ with ApiClient(configuration) as api_client:
         since_date=datetime.date.today() - datetime.timedelta(days=3),
     )
     for trx in trx_response.data.transactions:
-        print(trx)
+        logger.info(trx)
 
     exit(1)
     try:
