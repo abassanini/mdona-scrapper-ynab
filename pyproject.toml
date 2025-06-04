@@ -4,7 +4,15 @@ version = "0.1.5"
 description = "A simple scrapper for Mercadona's receipts"
 readme = "README.md"
 requires-python = ">=3.8,<3.12"
-dependencies = ["pandas>=2.0.3", "pypdf>=5.0.0", "ynab>=1.4.0", "pillow>=11.2.1", "pytesseract>=0.3.13", "loguru>=0.7.3"]
+dependencies = [
+    "pandas>=2.0.3", 
+    "pypdf>=5.0.0", 
+    "ynab>=1.4.0", 
+    "pillow>=11.2.1", 
+    "pytesseract>=0.3.13", 
+    "loguru>=0.7.3",
+    "donut-python==1.0.9",
+    ]
 license = "MIT"
 
 [project.urls]
