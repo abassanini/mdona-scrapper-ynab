@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import pytesseract
 from loguru import logger
@@ -90,4 +91,23 @@ def read_pdf_file(filepath: str) -> str:
         raise SystemExit(logger.error(f"Error reading PDF file: {filepath}"))
 
     logger.trace(text)
+    return text
+
+
+def read_invoice_file(invoice_file: str) -> str:
+
+    text: str = ""
+    if not Path(invoice_file).exists():
+        raise SystemExit(logger.error(f"File not found: {invoice_file}"))
+
+    if (file_type := detect_file_type(invoice_file)) == "pdf":
+        text = read_pdf_file(invoice_file)
+    elif file_type == "png":
+        text = read_png_file(invoice_file)
+    elif not file_type:
+        raise SystemExit(logger.error(f"Unsupported file type: {file_type}"))
+
+    if text == "":
+        raise SystemExit(logger.error(f"Error reading file: {invoice_file}"))
+
     return text

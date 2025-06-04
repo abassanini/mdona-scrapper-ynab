@@ -183,7 +183,7 @@ class MercadonaScrapper(InvoiceScrapper):
     def get_invoice(cls, text: str) -> Invoice:
 
         return Invoice(
-            supermarket=cls.supermarket,
+            supermarket=Invoice.supermarket,
             products=cls._get_products(text),
             invoice_number=cls._get_invoice_number(text),
             payment_date=cls._get_payment_date(text),
