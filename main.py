@@ -21,7 +21,7 @@ parser.add_argument(
     "-f",
     "--invoice_file",
     type=str,
-    help="Path to the PDF file to use",
+    help="Path to the invoice file to use",
     required=True,
 )
 parser.add_argument(
